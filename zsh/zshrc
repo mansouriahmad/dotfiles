@@ -1,0 +1,72 @@
+# --- Persistence / Data Bunker Paths ---
+# Toolchains live off a data partition so a reinstall doesn't lose them.
+# Override by exporting DATA_ROOT in ~/.zshenv, which zsh reads before this
+# file. Setting it in ~/.zshrc.local is too late - that is sourced at the end.
+: "${DATA_ROOT:=/data}"
+export RUSTUP_HOME="$DATA_ROOT/Cargo/rustup"
+export CARGO_HOME="$DATA_ROOT/Cargo"
+export NVM_DIR="$DATA_ROOT/nvm"
+export DOTNET_ROOT="$DATA_ROOT/dotnet"
+export SUDO_EDITOR="nvim"
+
+# --- Path Management ---
+# Using the U flag in typeset keeps the PATH unique (no duplicates)
+typeset -U path
+path=(
+  $CARGO_HOME/bin
+  $DOTNET_ROOT
+  $DOTNET_ROOT/tools
+  $path
+)
+export PATH
+
+# --- Toolchain Initializations ---
+# Rust
+[[ -f "$CARGO_HOME/env" ]] && source "$CARGO_HOME/env"
+
+# NVM
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+
+# Starship (Initialized after paths are set)
+eval "$(starship init zsh)"
+
+# --- Aliases (eza) ---
+alias ls='eza'
+alias ll='eza -lh --icons --git'
+alias la='eza -la --icons --git'
+alias lt='eza --tree --level=2'
+
+# alias ll='eza -lh --icons --git'
+# alias la='eza -la --icons --git'
+# alias lt='eza --tree --level=2'
+
+# --- Conda Initialization ---
+if [ -f "$DATA_ROOT/miniconda3/etc/profile.d/conda.sh" ]; then
+    . "$DATA_ROOT/miniconda3/etc/profile.d/conda.sh"
+elif [ -d "$DATA_ROOT/miniconda3/bin" ]; then
+    export PATH="$DATA_ROOT/miniconda3/bin:$PATH"
+fi
+
+# History file
+HISTFILE=~/.zsh_history
+HISTSIZE=10000
+SAVEHIST=10000
+
+# Better history behavior
+setopt APPEND_HISTORY
+setopt SHARE_HISTORY
+setopt INC_APPEND_HISTORY
+setopt HIST_IGNORE_DUPS
+setopt HIST_IGNORE_SPACE
+
+export PATH="$HOME/.local/bin:$PATH"
+
+export ANDROID_HOME="$DATA_ROOT/Android/Sdk"
+export PATH=$PATH:$ANDROID_HOME/emulator
+export PATH=$PATH:$ANDROID_HOME/platform-tools
+
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 
+
+# Secrets and per-machine overrides live in ~/.zshrc.local (untracked).
+[[ -f "$HOME/.zshrc.local" ]] && source "$HOME/.zshrc.local"

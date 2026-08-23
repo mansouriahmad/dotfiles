@@ -1,0 +1,17 @@
+# Editor / OS / multiplexer scratch
+*.bak
+*.bak.*
+*.swp
+*~
+*.orig
+*.rej
+.DS_Store
+Thumbs.db
+
+# Never commit secrets or machine-local overrides.
+# ~/.zshrc sources ~/.zshrc.local, which stays untracked by design.
+*.local
+.env
+*token*
+*secret*
+credentials*

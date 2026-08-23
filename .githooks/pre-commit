@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Block commits that look like they carry a credential.
+#
+# Enable once per clone:  git config core.hooksPath .githooks
+# Bypass deliberately:    git commit --no-verify
+set -uo pipefail
+
+fail=0
+report() { printf '\033[1;31mpre-commit:\033[0m %s\n' "$*" >&2; fail=1; }
+
+added="$(git diff --cached --diff-filter=ACM -U0 | grep '^+' | grep -v '^+++' || true)"
+[ -z "$added" ] && exit 0
+
+# Assignments to a secret-ish name with a non-placeholder value.
+if printf '%s' "$added" | grep -qEi '(api[_-]?key|secret|password|passwd|token)[[:space:]]*[=:][[:space:]]*["'"'"']?[A-Za-z0-9_/+.-]{16,}'; then
+  report "a secret-looking assignment is staged"
+fi
+
+# Well-known credential prefixes.
+if printf '%s' "$added" | grep -qE '(ghp_|gho_|github_pat_|sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|xox[baprs]-)'; then
+  report "a recognised credential prefix is staged"
+fi
+
+# Private key material.
+if printf '%s' "$added" | grep -qE 'BEGIN [A-Z ]*PRIVATE KEY'; then
+  report "private key material is staged"
+fi
+
+if [ "$fail" -ne 0 ]; then
+  cat >&2 <<'MSG'
+
+Secrets belong in ~/.zshrc.local (chmod 600, gitignored), not in this repo.
+If this is a false positive, re-run with:  git commit --no-verify
+MSG
+  exit 1
+fi
+exit 0

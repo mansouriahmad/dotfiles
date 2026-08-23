@@ -1,0 +1,5 @@
+# Identity is intentionally not tracked: this repo is public.
+# Per-machine name/email live in ~/.gitconfig.local, which this includes.
+# bootstrap.sh creates that file if missing.
+[include]
+	path = ~/.gitconfig.local

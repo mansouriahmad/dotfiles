@@ -198,5 +198,45 @@ return {
       { "#",  desc = "Search word under cursor backwards (centered)" },
       { "g*", desc = "Search word under cursor (partial match, centered)" },
     })
+
+    -- nvim-surround
+    -- Targets accepted by ds/cs (and as the closing char for ys/S).
+    local surround_targets = {
+      { ")", "( parens )" },
+      { "}", "{ braces }" },
+      { "]", "[ brackets ]" },
+      { ">", "< angles >" },
+      { '"', 'double quotes' },
+      { "'", "single quotes" },
+      { "`", "backticks" },
+      { "t", "HTML/JSX tag" },
+      { "f", "function call" },
+      { "q", "any quote type" },
+      { "s", "any delimiter" },
+    }
+
+    wk.add({
+      { "ys", group = "surround (motion)" },
+      { "yss", desc = "Surround current line" },
+      { "yS", group = "surround, own lines" },
+      { "ySS", desc = "Surround line, own lines" },
+      { "ds", group = "delete surround" },
+      { "cs", group = "change surround" },
+      { "cS", group = "change surround, own lines" },
+      { "gs", desc = "Surround word (then type delimiter)" },
+      { "gS", desc = "Surround WORD (then type delimiter)" },
+      { "<C-g>s", desc = "Insert surround pair", mode = "i" },
+      { "<C-g>S", desc = "Insert surround pair, own lines", mode = "i" },
+      { "S", desc = "Surround selection", mode = "v" },
+      { "gS", desc = "Surround selection, own lines", mode = "v" },
+    })
+
+    for _, target in ipairs(surround_targets) do
+      local char, label = target[1], target[2]
+      wk.add({
+        { "ds" .. char, desc = "Delete " .. label },
+        { "cs" .. char, group = "Change " .. label .. " to" },
+      })
+    end
   end,
 }

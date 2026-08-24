@@ -41,6 +41,27 @@ if vim.env.SSH_TTY or vim.env.SSH_CONNECTION then
       paste = { ['+'] = osc52.paste('+'), ['*'] = osc52.paste('*') },
     }
   end
+elseif vim.env.WAYLAND_DISPLAY and vim.fn.executable('wl-paste') == 1 then
+  -- Local Wayland clipboard, but time-boxed. GNOME/mutter exposes no
+  -- data-control protocol, so wl-clipboard must create a surface and wait for
+  -- keyboard focus before the compositor hands over the selection. While the
+  -- screen is locked that focus never arrives and wl-paste blocks forever --
+  -- and since clipboard reads are synchronous, that freezes the whole editor.
+  -- The timeout turns "frozen nvim" into "empty paste".
+  -- cache_enabled routes copy through jobstart (async, and it keeps wl-copy
+  -- alive to own the selection), so only the paste side can ever block.
+  vim.g.clipboard = {
+    name = 'wl-clipboard (timeout)',
+    copy = {
+      ['+'] = { 'wl-copy', '--type', 'text/plain' },
+      ['*'] = { 'wl-copy', '--primary', '--type', 'text/plain' },
+    },
+    paste = {
+      ['+'] = { 'timeout', '1', 'wl-paste', '--no-newline' },
+      ['*'] = { 'timeout', '1', 'wl-paste', '--no-newline', '--primary' },
+    },
+    cache_enabled = 1,
+  }
 end
 vim.opt.cmdheight = 2                           -- more space in the neovim command line for displaying messages
 vim.opt.completeopt = { "menuone", "noselect" } -- mostly just for cmp

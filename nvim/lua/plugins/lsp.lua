@@ -74,9 +74,13 @@ return {
       require("mason-lspconfig").setup({
         ensure_installed = { "lua_ls", "rust_analyzer", "ruff", "omnisharp", "pyright", "taplo", "bashls", "yamlls", "dockerls", "marksman" },
         automatic_installation = true,
-        -- rust_analyzer is managed by rustaceanvim — don't let mason-lspconfig start it
+        -- automatic_enable starts EVERY server installed in Mason, not just the
+        -- ones in ensure_installed — so anything installed via :Mason and never
+        -- configured here still attaches. Exclude those explicitly.
+        --   rust_analyzer: managed by rustaceanvim
+        --   basedpyright:  duplicate of pyright, doubled every Python completion
         automatic_enable = {
-          exclude = { "rust_analyzer" },
+          exclude = { "rust_analyzer", "basedpyright" },
         },
       })
 

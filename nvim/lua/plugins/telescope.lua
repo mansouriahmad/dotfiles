@@ -192,12 +192,33 @@ return {
     vim.keymap.set('n', '<leader>sk', builtin.keymaps)
     vim.keymap.set('n', '<leader>sF', builtin.filetypes)
     vim.keymap.set('n', '<leader>sr', builtin.oldfiles, { desc = 'Recent files' })
-    vim.keymap.set('n', '<leader>gs', builtin.git_status)
-    vim.keymap.set('n', '<leader>gc', builtin.git_commits)
-    vim.keymap.set('n', '<leader>gr', builtin.git_branches)
-    vim.keymap.set('n', '<leader>gss', builtin.git_stash)
+    -- Telescope's git pickers raise E5108 with a stack traceback outside a repo.
+    -- Wrap them so a non-repo cwd is just a notification.
+    local function in_git_repo()
+      return #vim.fs.find('.git', { upward = true, path = vim.uv.cwd(), type = 'directory' }) > 0
+          or #vim.fs.find('.git', { upward = true, path = vim.uv.cwd(), type = 'file' }) > 0
+    end
+
+    local function git_picker(picker, opts)
+      return function()
+        if not in_git_repo() then
+          vim.notify('Not a git repository: ' .. vim.uv.cwd(), vim.log.levels.WARN)
+          return
+        end
+        builtin[picker](opts)
+      end
+    end
+
+    vim.keymap.set('n', '<leader>gs', git_picker('git_status'))
+    vim.keymap.set('n', '<leader>gc', git_picker('git_commits'))
+    vim.keymap.set('n', '<leader>gr', git_picker('git_branches'))
+    vim.keymap.set('n', '<leader>gss', git_picker('git_stash'))
 
     vim.keymap.set('n', '<leader>egS', function()
+      if not in_git_repo() then
+        vim.notify('Not a git repository: ' .. vim.uv.cwd(), vim.log.levels.WARN)
+        return
+      end
       require('telescope.builtin').git_status({
         prompt_title = "Git Status - Changed Files",
         attach_mappings = function(_, map)

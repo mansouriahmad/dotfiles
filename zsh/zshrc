@@ -28,14 +28,17 @@ export PATH
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
 
-# Starship (Initialized after paths are set)
-eval "$(starship init zsh)"
+# Starship (Initialized after paths are set). Guarded so a half-provisioned
+# box still gets a working prompt instead of an error on every shell.
+(( $+commands[starship] )) && eval "$(starship init zsh)"
 
 # --- Aliases (eza) ---
-alias ls='eza'
-alias ll='eza -lh --icons --git'
-alias la='eza -la --icons --git'
-alias lt='eza --tree --level=2'
+if (( $+commands[eza] )); then
+  alias ls='eza'
+  alias ll='eza -lh --icons --git'
+  alias la='eza -la --icons --git'
+  alias lt='eza --tree --level=2'
+fi
 
 # alias ll='eza -lh --icons --git'
 # alias la='eza -la --icons --git'
@@ -66,7 +69,9 @@ export ANDROID_HOME="$DATA_ROOT/Android/Sdk"
 export PATH=$PATH:$ANDROID_HOME/emulator
 export PATH=$PATH:$ANDROID_HOME/platform-tools
 
-export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 
+# Debian names the JDK dir by dpkg arch (amd64/arm64), not uname (x86_64/aarch64).
+[[ -d /usr/lib/jvm/java-17-openjdk-$(dpkg --print-architecture 2>/dev/null) ]] \
+  && export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-$(dpkg --print-architecture)
 
 # Secrets and per-machine overrides live in ~/.zshrc.local (untracked).
 [[ -f "$HOME/.zshrc.local" ]] && source "$HOME/.zshrc.local"

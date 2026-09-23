@@ -2,9 +2,11 @@
 keybinds {
     shared_except "locked" {
         // Seamless focus: falls through to Neovim windows, then moves Zellij panes.
+        // move_focus, not move_focus_or_tab: at the leftmost/rightmost pane Ctrl-h/l
+        // stops instead of jumping to another tab. Alt-Left/Right still cross tabs.
         bind "Ctrl h" {
             MessagePlugin "https://github.com/hiasr/vim-zellij-navigator/releases/download/0.3.0/vim-zellij-navigator.wasm" {
-                name "move_focus_or_tab"; payload "left"; move_mod "ctrl"; resize_mod "alt";
+                name "move_focus"; payload "left"; move_mod "ctrl"; resize_mod "alt";
             };
         }
         bind "Ctrl j" {
@@ -19,7 +21,7 @@ keybinds {
         }
         bind "Ctrl l" {
             MessagePlugin "https://github.com/hiasr/vim-zellij-navigator/releases/download/0.3.0/vim-zellij-navigator.wasm" {
-                name "move_focus_or_tab"; payload "right"; move_mod "ctrl"; resize_mod "alt";
+                name "move_focus"; payload "right"; move_mod "ctrl"; resize_mod "alt";
             };
         }
         // Resize (Alt-hjkl no longer needed for focus).
@@ -595,7 +597,7 @@ web_client {
 // falls through to Neovim windows before moving Zellij panes.
 default_mode "normal"
 
-theme "catppuccin-mocha"
+theme "catppuccin-frappe"
 mouse_mode true
 pane_frames true
 on_force_close "detach"

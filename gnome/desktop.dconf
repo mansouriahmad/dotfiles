@@ -1,0 +1,94 @@
+# GNOME desktop settings, applied with:  dconf load / < gnome/desktop.dconf
+# (bootstrap.sh does this on a GNOME session). dconf load only writes the keys
+# listed here, so everything else keeps its default.
+#
+# Deliberately left out: per-app notification lists, app grid layout, network
+# and remote-desktop config, file-chooser history — machine-specific or private.
+
+[org/gnome/desktop/interface]
+color-scheme='prefer-dark'
+gtk-theme='Yaru-dark'
+icon-theme='Yaru-dark'
+accent-color='orange'
+font-name='Ubuntu 11'
+monospace-font-name='JetBrainsMono Nerd Font 11'
+
+[org/gnome/desktop/background]
+picture-options='zoom'
+picture-uri='file:///usr/share/backgrounds/mendhak-Bluebells_Suspended_In_Time.jpg'
+picture-uri-dark='file:///usr/share/backgrounds/mendhak-Bluebells_Suspended_In_Time.jpg'
+primary-color='#000000000000'
+secondary-color='#000000000000'
+
+[org/gnome/desktop/screensaver]
+picture-options='zoom'
+picture-uri='file:///usr/share/backgrounds/mendhak-Bluebells_Suspended_In_Time.jpg'
+primary-color='#000000000000'
+secondary-color='#000000000000'
+# The original machine never blanks or locks (it is used over RDP). Uncomment
+# to match it; on a laptop you probably want the defaults.
+# idle-activation-enabled=false
+# lock-enabled=false
+
+# [org/gnome/desktop/session]
+# idle-delay=uint32 0
+
+[org/gnome/desktop/input-sources]
+sources=[('xkb', 'us'), ('xkb', 'ir')]
+
+[org/gnome/desktop/peripherals/keyboard]
+numlock-state=true
+
+[org/gnome/desktop/peripherals/touchpad]
+two-finger-scrolling-enabled=true
+
+[org/gnome/desktop/privacy]
+report-technical-problems=false
+
+[org/gnome/mutter]
+workspaces-only-on-primary=false
+
+[org/gnome/settings-daemon/plugins/color]
+night-light-schedule-automatic=false
+
+[org/gnome/shell]
+enabled-extensions=['ding@rastersoft.com', 'ubuntu-dock@ubuntu.com', 'tiling-assistant@ubuntu.com']
+favorite-apps=['firefox_firefox.desktop', 'org.gnome.Nautilus.desktop', 'google-chrome.desktop', 'org.wezfurlong.wezterm.desktop']
+
+[org/gnome/shell/world-clocks]
+locations=[<(uint32 2, <('New York', 'KNYC', true, [(0.71180344078725644, -1.2909618758762367)], [(0.71059804659265924, -1.2916478949920254)])>)>]
+
+[org/gnome/shell/extensions/dash-to-dock]
+always-center-icons=true
+autohide=true
+dash-max-icon-size=56
+dock-fixed=false
+dock-position='BOTTOM'
+extend-height=false
+isolate-monitors=true
+isolate-workspaces=false
+multi-monitor=true
+show-mounts=false
+show-trash=false
+transparency-mode='DYNAMIC'
+
+[org/gnome/shell/extensions/tiling-assistant]
+focus-hint-color='rgb(203,67,20)'
+tiling-popup-all-workspace=true
+
+[org/gnome/nautilus/preferences]
+default-folder-viewer='list-view'
+
+[org/gnome/nautilus/list-view]
+default-visible-columns=['name', 'size', 'date_modified']
+default-zoom-level='small'
+
+[org/gnome/Ptyxis]
+font-name='JetBrainsMono Nerd Font Mono 12'
+use-system-font=false
+default-profile-uuid='4057ea937fbbeb907a0ecec2698e9b06'
+profile-uuids=['4057ea937fbbeb907a0ecec2698e9b06']
+
+[org/gnome/Ptyxis/Profiles/4057ea937fbbeb907a0ecec2698e9b06]
+cell-height-scale=1.1000000000000001
+palette='Catppuccin Mocha'

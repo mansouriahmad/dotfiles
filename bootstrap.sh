@@ -106,6 +106,17 @@ if [[ $DATA_ROOT != "$DEFAULT_DATA_ROOT" ]] && ! grep -qs '^export DATA_ROOT=' "
   echo "  append ~/.zshenv (DATA_ROOT=$DATA_ROOT)"
 fi
 
+# GNOME desktop settings (theme, dock, keyboard layouts, ...). dconf load only
+# writes the keys in the file, so re-running is harmless. Needs the desktop's
+# D-Bus session, so it is skipped over plain SSH or on a non-GNOME box.
+if [[ ${SKIP_GNOME:-0} != 1 ]] && command -v dconf >/dev/null && command -v gnome-shell >/dev/null; then
+  if [[ -n ${DBUS_SESSION_BUS_ADDRESS:-} ]] && dconf load / < "$DOTFILES/gnome/desktop.dconf"; then
+    echo "  dconf  gnome/desktop.dconf applied"
+  else
+    echo "  skip   GNOME settings (no desktop session; run: dconf load / < $DOTFILES/gnome/desktop.dconf)"
+  fi
+fi
+
 # Identity is not tracked (public repo). Seed it locally.
 if [[ ! -f $HOME/.gitconfig.local ]]; then
   cat > "$HOME/.gitconfig.local" <<'IDENT'

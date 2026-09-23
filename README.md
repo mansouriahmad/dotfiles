@@ -60,6 +60,7 @@ the lockfile.
 | `claude/settings.json` | `~/.claude/settings.json` | Claude Code |
 | `btop/btop.conf` | `~/.config/btop/btop.conf` | |
 | `Brewfile` | — | macOS packages, read by `install.sh` |
+| `gnome/desktop.dconf` | — | GNOME theme, dock, keyboard layouts; loaded by `bootstrap.sh` |
 | `nvim/` | `~/.config/nvim` | neovim config, merged in via git subtree |
 
 Data directories, linked by `bootstrap.sh`. If the home directory already holds a

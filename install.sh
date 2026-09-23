@@ -18,7 +18,7 @@
 #   SKIP_DOTNET=1 ./install.sh      # skip a component, see SKIP_* below
 #   ./install.sh --tools-only       # install software, don't link
 #
-# SKIP_<NODE|RUST|DOTNET|ZELLIJ|FONT|ZSH|WEZTERM|CLAUDE|NVIM_SYNC>=1
+# SKIP_<NODE|RUST|DOTNET|CONDA|JDK|ZELLIJ|FONT|ZSH|WEZTERM|CLAUDE|NVIM_SYNC>=1
 set -euo pipefail
 
 DOTFILES="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -50,8 +50,8 @@ skip() { local v="SKIP_$1"; [ "${!v:-0}" = "1" ]; }
 
 ARCH="$(uname -m)"
 case "$ARCH" in
-  x86_64)        NVIM_ARCH="x86_64"; ZELLIJ_ARCH="x86_64";  LG_ARCH="x86_64" ;;
-  aarch64|arm64) NVIM_ARCH="arm64";  ZELLIJ_ARCH="aarch64"; LG_ARCH="arm64" ;;
+  x86_64)        NVIM_ARCH="x86_64"; ZELLIJ_ARCH="x86_64";  LG_ARCH="x86_64"; GNU_ARCH="x86_64" ;;
+  aarch64|arm64) NVIM_ARCH="arm64";  ZELLIJ_ARCH="aarch64"; LG_ARCH="arm64";  GNU_ARCH="aarch64" ;;
   *) die "unsupported architecture: $ARCH" ;;
 esac
 
@@ -60,6 +60,13 @@ have apt-get || die "this script targets Debian/Ubuntu (apt-get not found)"
 
 mkdir -p "$LOCAL_BIN"
 export PATH="$LOCAL_BIN:$PATH"
+
+# No data partition is fine: $DATA_ROOT becomes a plain directory we own.
+if [ ! -d "$DATA_ROOT" ] || [ ! -w "$DATA_ROOT" ]; then
+  log "Creating $DATA_ROOT"
+  $SUDO mkdir -p "$DATA_ROOT"
+  $SUDO chown "$(id -u):$(id -g)" "$DATA_ROOT"
+fi
 
 # ---------------------------------------------------------------------------
 # 1. Base packages
@@ -92,7 +99,7 @@ if ! have eza; then
                | grep -oP '"tag_name":\s*"v\K[^"]+' || true)"
     if [ -n "${eza_ver:-}" ]; then
       tmp="$(mktemp -d)"
-      curl -fL "https://github.com/eza-community/eza/releases/latest/download/eza_${ARCH}-unknown-linux-gnu.tar.gz" \
+      curl -fL "https://github.com/eza-community/eza/releases/latest/download/eza_${GNU_ARCH}-unknown-linux-gnu.tar.gz" \
         -o "$tmp/eza.tar.gz"
       tar -xzf "$tmp/eza.tar.gz" -C "$tmp"
       install -m755 "$tmp/eza" "$LOCAL_BIN/eza"
@@ -141,6 +148,7 @@ fi
 
 if ! skip RUST; then
   export RUSTUP_HOME="${DATA_ROOT}/Cargo/rustup" CARGO_HOME="${DATA_ROOT}/Cargo"
+  export PATH="$CARGO_HOME/bin:$PATH"   # so a re-run finds the existing rustup
   if ! have rustup; then
     log "Installing Rust toolchain into $CARGO_HOME"
     curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs | sh -s -- -y --no-modify-path
@@ -165,6 +173,31 @@ if ! skip DOTNET; then
   ok ".NET $(dotnet --version 2>/dev/null || echo '?')"
 else
   warn "skipping .NET"
+fi
+
+if ! skip CONDA; then
+  if [ ! -x "${DATA_ROOT}/miniconda3/bin/conda" ]; then
+    log "Installing Miniconda into ${DATA_ROOT}/miniconda3"
+    tmp="$(mktemp -d)"
+    curl -fL "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-${GNU_ARCH}.sh" -o "$tmp/miniconda.sh"
+    # -b: batch, no prompts and no edits to shell rc files (zshrc sources conda.sh itself).
+    bash "$tmp/miniconda.sh" -b -p "${DATA_ROOT}/miniconda3"
+    rm -rf "$tmp"
+  fi
+  ok "conda $("${DATA_ROOT}/miniconda3/bin/conda" --version 2>/dev/null || echo '?')"
+else
+  warn "skipping Miniconda"
+fi
+
+# zshrc exports JAVA_HOME for JDK 17 (Android tooling) when it is present.
+if ! skip JDK; then
+  if ! dpkg -s openjdk-17-jdk >/dev/null 2>&1; then
+    log "Installing OpenJDK 17"
+    $SUDO apt-get install -y --no-install-recommends openjdk-17-jdk || warn "openjdk-17-jdk install failed"
+  fi
+  dpkg -s openjdk-17-jdk >/dev/null 2>&1 && ok "OpenJDK 17"
+else
+  warn "skipping JDK"
 fi
 
 # ---------------------------------------------------------------------------
@@ -270,8 +303,9 @@ else
 fi
 
 if ! skip NVIM_SYNC; then
-  log "Syncing plugins — the first run compiles Treesitter parsers, be patient"
-  nvim --headless "+Lazy! sync" +qa || warn "Lazy sync reported issues (often fine on first run)"
+  # restore, not sync: install exactly the commits pinned in nvim/lazy-lock.json.
+  log "Restoring plugins from lazy-lock.json — the first run compiles Treesitter parsers, be patient"
+  nvim --headless "+Lazy! restore" +qa || warn "Lazy restore reported issues (often fine on first run)"
   log "Installing Mason tools not covered by ensure_installed"
   nvim --headless "+MasonInstall stylua debugpy netcoredbg codelldb shfmt" +qa \
     || warn "some Mason tools failed; open nvim and run :Mason to retry"
@@ -293,11 +327,9 @@ Next steps:
 Secrets:
   ~/.zshrc.local was created empty. Add API tokens there — never in zsh/zshrc.
 
-Toolchains were installed under ${DATA_ROOT} to match zsh/zshrc. If this machine
-has no ${DATA_ROOT} partition, re-run with DATA_ROOT=\$HOME and update the paths
-at the top of zsh/zshrc to match.
+Toolchains, nvim plugins, ~/.cargo and ~/Code live under ${DATA_ROOT}.
 
-Not installed (machine-specific, add by hand if needed):
-  miniconda (${DATA_ROOT}/miniconda3), Android SDK (${DATA_ROOT}/Android/Sdk),
-  JDK 17 — referenced by zsh/zshrc but guarded, so their absence is harmless.
+Not installed (add by hand if needed):
+  Android Studio / SDK (${DATA_ROOT}/Android/Sdk) — referenced by zsh/zshrc but
+  harmless when absent.
 EOF

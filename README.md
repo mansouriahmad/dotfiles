@@ -23,17 +23,24 @@ Two scripts, deliberately split:
 call. Use `bootstrap.sh` alone when the tools are already present, and
 `install.sh --tools-only` for the reverse. Both are idempotent.
 
-Toolchains install under `$DATA_ROOT` (default `/data`), which keeps them off the
-root partition so a reinstall doesn't lose them. On a machine laid out
-differently:
+It works on a fresh Ubuntu install and on a machine that is already set up:
+every step checks first, and anything in the way is moved aside, never deleted.
+
+Toolchains (Rust, Node, .NET, Miniconda), nvim plugins, and `~/Code` live under
+`$DATA_ROOT` (default `/data`), so a reinstall of `/` doesn't lose them. With no
+data partition, `/data` is simply created as a directory you own. To use a
+different root:
 
 ```sh
-echo 'export DATA_ROOT="$HOME"' >> ~/.zshenv   # zsh reads this before .zshrc
-DATA_ROOT="$HOME" ./install.sh
+DATA_ROOT="$HOME/data" ./install.sh
 ```
 
-Setting `DATA_ROOT` in `~/.zshrc.local` will not work — that file is sourced at
-the end of `zshrc`, after the paths are already exported.
+`bootstrap.sh` records a non-default root in `~/.zshenv`, which zsh reads before
+`.zshrc`. (`~/.zshrc.local` would be too late: it is sourced at the end.)
+
+Neovim plugins are pinned by `nvim/lazy-lock.json`; `install.sh` runs
+`:Lazy! restore` to install exactly those commits. After `:Lazy update`, commit
+the lockfile.
 
 ## Layout
 
@@ -49,6 +56,16 @@ the end of `zshrc`, after the paths are already exported.
 | `claude/settings.json` | `~/.claude/settings.json` | Claude Code |
 | `btop/btop.conf` | `~/.config/btop/btop.conf` | |
 | `nvim/` | `~/.config/nvim` | neovim config, merged in via git subtree |
+
+Data directories, linked by `bootstrap.sh`. If the home directory already holds a
+real one and `$DATA_ROOT` doesn't, it is moved there first; if both exist, it is
+left alone for you to merge.
+
+| `$DATA_ROOT/…` | Symlinked to | What it is |
+|---|---|---|
+| `nvim-data` | `~/.local/share/nvim` | lazy plugins, Mason tools |
+| `Cargo` | `~/.cargo` | `CARGO_HOME`; rustup lives in `Cargo/rustup` |
+| `Code` | `~/Code` | projects |
 
 This repo is public, so it carries no identifying information: git identity
 lives in `~/.gitconfig.local` (untracked, created by `bootstrap.sh`), secrets in

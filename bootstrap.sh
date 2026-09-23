@@ -8,6 +8,7 @@
 set -euo pipefail
 
 DOTFILES="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DATA_ROOT="${DATA_ROOT:-/data}"
 
 link() {
   local src="$DOTFILES/$1" dst="$2"
@@ -33,6 +34,45 @@ link() {
   printf '  link   %s -> %s\n' "${dst/#$HOME/\~}" "$1"
 }
 
+# Point a home directory at its counterpart under $DATA_ROOT, so bulky or
+# precious state (plugins, toolchains, projects) survives a reinstall of /.
+# A real directory already at $2 is moved into $DATA_ROOT when nothing is there
+# yet; if both exist it is left alone rather than guessing which one wins.
+link_data() {
+  local src="$DATA_ROOT/$1" dst="$2"
+
+  if [[ -L $dst && "$(readlink -f "$dst")" == "$(readlink -f "$src")" ]]; then
+    printf '  ok     %s\n' "${dst/#$HOME/\~}"
+    return
+  fi
+
+  mkdir -p "$(dirname "$dst")"
+
+  if [[ -d $dst && ! -L $dst ]]; then
+    if [[ -e $src ]]; then
+      printf '  keep   %s (both it and %s exist; merge by hand)\n' "${dst/#$HOME/\~}" "$src"
+      return
+    fi
+    mv "$dst" "$src"
+    printf '  move   %s -> %s\n' "${dst/#$HOME/\~}" "$src"
+  elif [[ -e $dst || -L $dst ]]; then
+    mv "$dst" "$dst.pre-bootstrap"
+    printf '  backup %s -> %s\n' "${dst/#$HOME/\~}" "${dst##*/}.pre-bootstrap"
+  fi
+
+  mkdir -p "$src"
+  ln -s "$src" "$dst"
+  printf '  link   %s -> %s\n' "${dst/#$HOME/\~}" "$src"
+}
+
+# $DATA_ROOT is a plain directory if this box has no data partition; create it
+# owned by us so nothing below needs root.
+if [[ ! -d $DATA_ROOT || ! -w $DATA_ROOT ]]; then
+  sudo mkdir -p "$DATA_ROOT"
+  sudo chown "$(id -u):$(id -g)" "$DATA_ROOT"
+  echo "Created $DATA_ROOT (owned by $(id -un))"
+fi
+
 echo "Linking dotfiles from $DOTFILES"
 
 # Refuse commits that carry credentials (see .githooks/pre-commit).
@@ -51,6 +91,18 @@ link wezterm              "$HOME/.config/wezterm"
 link claude/settings.json "$HOME/.claude/settings.json"
 link btop/btop.conf       "$HOME/.config/btop/btop.conf"
 link nvim                 "$HOME/.config/nvim"
+
+echo "Linking data directories under $DATA_ROOT"
+link_data nvim-data "$HOME/.local/share/nvim"   # lazy plugins, mason tools
+link_data Cargo     "$HOME/.cargo"              # same dir zshrc uses as CARGO_HOME
+link_data Code      "$HOME/Code"
+
+# zshrc defaults DATA_ROOT to /data; any other root has to be exported before
+# zshrc runs, and ~/.zshenv is the file zsh reads first.
+if [[ $DATA_ROOT != /data ]] && ! grep -qs '^export DATA_ROOT=' "$HOME/.zshenv"; then
+  printf 'export DATA_ROOT="%s"\n' "$DATA_ROOT" >> "$HOME/.zshenv"
+  echo "  append ~/.zshenv (DATA_ROOT=$DATA_ROOT)"
+fi
 
 # Identity is not tracked (public repo). Seed it locally.
 if [[ ! -f $HOME/.gitconfig.local ]]; then

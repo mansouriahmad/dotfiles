@@ -140,7 +140,13 @@ if ! skip NODE; then
   fi
   # shellcheck disable=SC1091
   . "$NVM_DIR/nvm.sh"
-  have node || { log "Installing Node.js (${NODE_VERSION})"; nvm install "$NODE_VERSION"; nvm alias default "$NODE_VERSION"; }
+  if ! have node; then
+    log "Installing Node.js (${NODE_VERSION})"
+    nvm install "$NODE_VERSION"
+    # nvm install takes the flag --lts, but nvm alias only takes the name lts/*.
+    [ "$NODE_VERSION" = "--lts" ] && node_alias="lts/*" || node_alias="$NODE_VERSION"
+    nvm alias default "$node_alias"
+  fi
   ok "node $(node --version 2>/dev/null || echo '?')"
 else
   warn "skipping Node.js"

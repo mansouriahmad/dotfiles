@@ -42,6 +42,14 @@ vim.keymap.set("x", "<leader>k", ":m '<-2<CR>gv=gv", { desc = "Move selection up
 -- Updates how vim uses registers when pasting
 vim.keymap.set("v", "p", '"_dP', opts)
 
+-- Mouse selection copies, like Zellij's copy_on_select.
+-- Zellij only copies a drag it sees itself; while Neovim is focused mouse=a
+-- hands every event to us instead, so the drag ends as a visual selection and
+-- nothing reaches the clipboard. Yank it on button release: "+ is OSC 52 over
+-- SSH (see options.lua), so it lands on the *local* machine's clipboard.
+-- gv keeps the selection up afterwards so the drag still looks like a drag.
+vim.keymap.set('x', '<LeftRelease>', '"+ygv', { desc = 'Copy mouse selection to clipboard' })
+
 -- Less restrictive insert mode arrow keys (allow basic movement)
 vim.keymap.set('i', '<up>', '<up>')
 vim.keymap.set('i', '<down>', '<down>')

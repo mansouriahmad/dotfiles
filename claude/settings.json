@@ -1,7 +1,9 @@
 {
-  "model": "opus[1m]",
+  "model": "opus",
   "enabledPlugins": {
     "rust-analyzer-lsp@claude-plugins-official": true
   },
-  "tui": "fullscreen"
+  "tui": "fullscreen",
+  "theme": "auto",
+  "agentPushNotifEnabled": false
 }

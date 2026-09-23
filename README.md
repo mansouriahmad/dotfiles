@@ -1,7 +1,7 @@
 # Dotfiles
 
-Config for a Linux workstation running **wezterm → zellij → neovim**, with Claude
-Code inside neovim.
+Config for a Linux (Debian/Ubuntu) or macOS workstation running
+**wezterm → zellij → neovim**, with Claude Code inside neovim.
 
 Everything here is the real file; `~` holds symlinks pointing back into this repo.
 
@@ -23,12 +23,16 @@ Two scripts, deliberately split:
 call. Use `bootstrap.sh` alone when the tools are already present, and
 `install.sh --tools-only` for the reverse. Both are idempotent.
 
-It works on a fresh Ubuntu install and on a machine that is already set up:
-every step checks first, and anything in the way is moved aside, never deleted.
+It works on a fresh Ubuntu install or Mac and on a machine that is already set
+up: every step checks first, and anything in the way is moved aside, never
+deleted. On macOS it installs Homebrew (and with it the Xcode Command Line
+Tools), then everything in `Brewfile`; on Linux the same tools come from apt and
+upstream releases. Toolchains use the same installers on both.
 
 Toolchains (Rust, Node, .NET, Miniconda), nvim plugins, and `~/Code` live under
-`$DATA_ROOT` (default `/data`), so a reinstall of `/` doesn't lose them. With no
-data partition, `/data` is simply created as a directory you own. To use a
+`$DATA_ROOT`, so a reinstall of `/` doesn't lose them. The default is `/data` on
+Linux (created as a directory you own if there is no data partition) and
+`~/data` on macOS, which doesn't allow new top-level directories. To use a
 different root:
 
 ```sh
@@ -55,6 +59,7 @@ the lockfile.
 | `wezterm/wezterm.lua` | `~/.config/wezterm` | terminal |
 | `claude/settings.json` | `~/.claude/settings.json` | Claude Code |
 | `btop/btop.conf` | `~/.config/btop/btop.conf` | |
+| `Brewfile` | — | macOS packages, read by `install.sh` |
 | `nvim/` | `~/.config/nvim` | neovim config, merged in via git subtree |
 
 Data directories, linked by `bootstrap.sh`. If the home directory already holds a

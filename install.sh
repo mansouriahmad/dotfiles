@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
-# install.sh — provision a fresh Debian/Ubuntu box with the tools these
-# dotfiles expect, then link the configs.
+# install.sh — provision a fresh Debian/Ubuntu box or Mac with the tools these
+# dotfiles expect, then link the configs. On macOS packages come from Homebrew
+# (see Brewfile); toolchains use the same upstream installers on both.
 #
 # Division of labour:
 #   install.sh    installs software. Never edits config files.
@@ -19,6 +20,7 @@
 #   ./install.sh --tools-only       # install software, don't link
 #
 # SKIP_<NODE|RUST|DOTNET|CONDA|JDK|ZELLIJ|FONT|ZSH|WEZTERM|CLAUDE|NVIM_SYNC>=1
+# On macOS, JDK, FONT and WEZTERM come from the Brewfile; edit it instead.
 set -euo pipefail
 
 DOTFILES="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -27,9 +29,11 @@ NERD_FONT_VERSION="${NERD_FONT_VERSION:-v3.4.0}"
 NODE_VERSION="${NODE_VERSION:---lts}"
 DOTNET_CHANNEL="${DOTNET_CHANNEL:-LTS}"
 
+OS="$(uname -s)"
+
 # zsh/zshrc keeps toolchains on a data partition so a reinstall doesn't lose
-# them. Override if this box has no /data.
-DATA_ROOT="${DATA_ROOT:-/data}"
+# them. macOS won't allow new top-level directories, so there it is ~/data.
+if [ "$OS" = Darwin ]; then DATA_ROOT="${DATA_ROOT:-$HOME/data}"; else DATA_ROOT="${DATA_ROOT:-/data}"; fi
 
 LOCAL_BIN="${HOME}/.local/bin"
 FONT_DIR="${HOME}/.local/share/fonts"
@@ -55,22 +59,52 @@ case "$ARCH" in
   *) die "unsupported architecture: $ARCH" ;;
 esac
 
+# Miniconda names its installers Linux-{x86_64,aarch64} and MacOSX-{x86_64,arm64}.
+case "$OS" in
+  Linux)  CONDA_PLATFORM="Linux-${GNU_ARCH}"
+          have apt-get || die "on Linux this script targets Debian/Ubuntu (apt-get not found)" ;;
+  Darwin) CONDA_PLATFORM="MacOSX-${ARCH}" ;;
+  *)      die "unsupported OS: $OS" ;;
+esac
+
 [ "$(id -u)" -eq 0 ] && SUDO="" || SUDO="sudo"
-have apt-get || die "this script targets Debian/Ubuntu (apt-get not found)"
 
 mkdir -p "$LOCAL_BIN"
 export PATH="$LOCAL_BIN:$PATH"
 
 # No data partition is fine: $DATA_ROOT becomes a plain directory we own.
-if [ ! -d "$DATA_ROOT" ] || [ ! -w "$DATA_ROOT" ]; then
+# Root is only needed when it lives outside $HOME (the Linux default).
+if ! mkdir -p "$DATA_ROOT" 2>/dev/null || [ ! -w "$DATA_ROOT" ]; then
   log "Creating $DATA_ROOT"
   $SUDO mkdir -p "$DATA_ROOT"
   $SUDO chown "$(id -u):$(id -g)" "$DATA_ROOT"
 fi
 
 # ---------------------------------------------------------------------------
-# 1. Base packages
+# 1. Base packages. macOS: everything in the Brewfile, which also covers what
+#    Linux gets in sections 2 and 4, so their have-checks pass there.
 # ---------------------------------------------------------------------------
+load_brew() {
+  local b
+  for b in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+    if [ -x "$b" ]; then eval "$("$b" shellenv)"; return 0; fi
+  done
+  return 1
+}
+
+if [ "$OS" = Darwin ]; then
+  if ! have brew && ! load_brew; then
+    log "Installing Homebrew (this also installs the Xcode Command Line Tools)"
+    # The installer needs sudo but cannot prompt for it when NONINTERACTIVE.
+    sudo -v
+    NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    load_brew || die "Homebrew installed but brew was not found"
+  fi
+  log "Installing packages from Brewfile"
+  brew bundle --file="$DOTFILES/Brewfile"
+  ok "Homebrew packages installed"
+else
+
 log "Installing base packages via apt"
 $SUDO apt-get update -y
 $SUDO apt-get install -y --no-install-recommends \
@@ -127,6 +161,8 @@ else
   rm -rf "$tmp"
   ok "neovim $(nvim --version | head -1) installed"
 fi
+
+fi # Linux: sections 1-2
 
 # ---------------------------------------------------------------------------
 # 3. Toolchains. Paths match zsh/zshrc, which points at $DATA_ROOT.
@@ -185,7 +221,7 @@ if ! skip CONDA; then
   if [ ! -x "${DATA_ROOT}/miniconda3/bin/conda" ]; then
     log "Installing Miniconda into ${DATA_ROOT}/miniconda3"
     tmp="$(mktemp -d)"
-    curl -fL "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-${GNU_ARCH}.sh" -o "$tmp/miniconda.sh"
+    curl -fL "https://repo.anaconda.com/miniconda/Miniconda3-latest-${CONDA_PLATFORM}.sh" -o "$tmp/miniconda.sh"
     # -b: batch, no prompts and no edits to shell rc files (zshrc sources conda.sh itself).
     bash "$tmp/miniconda.sh" -b -p "${DATA_ROOT}/miniconda3"
     rm -rf "$tmp"
@@ -196,7 +232,10 @@ else
 fi
 
 # zshrc exports JAVA_HOME for JDK 17 (Android tooling) when it is present.
-if ! skip JDK; then
+# macOS gets openjdk@17 from the Brewfile.
+if [ "$OS" = Darwin ]; then
+  :
+elif ! skip JDK; then
   if ! dpkg -s openjdk-17-jdk >/dev/null 2>&1; then
     log "Installing OpenJDK 17"
     $SUDO apt-get install -y --no-install-recommends openjdk-17-jdk || warn "openjdk-17-jdk install failed"
@@ -228,7 +267,7 @@ else
   warn "skipping Zellij"
 fi
 
-if ! skip WEZTERM && ! have wezterm; then
+if [ "$OS" = Linux ] && ! skip WEZTERM && ! have wezterm; then
   log "Installing WezTerm"
   curl -fsSL https://apt.fury.io/wez/gpg.key \
     | $SUDO gpg --yes --dearmor -o /usr/share/keyrings/wezterm-fury.gpg
@@ -261,7 +300,9 @@ if ! have lazygit; then
 fi
 have lazygit && ok "lazygit $(lazygit --version 2>/dev/null | head -1 || echo '?')"
 
-if ! skip FONT; then
+if [ "$OS" = Darwin ]; then
+  :  # font-jetbrains-mono-nerd-font cask, from the Brewfile
+elif ! skip FONT; then
   if ! fc-list 2>/dev/null | grep -qi "JetBrainsMono Nerd Font"; then
     log "Installing JetBrainsMono Nerd Font ${NERD_FONT_VERSION}"
     mkdir -p "$FONT_DIR"

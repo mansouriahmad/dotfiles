@@ -603,7 +603,7 @@ pane_frames true
 on_force_close "detach"
 scroll_buffer_size 100000
 copy_on_select true
-scrollback_editor "/usr/bin/nvim"
+scrollback_editor "nvim" // looked up on PATH: /usr/bin, /usr/local/bin or Homebrew
 session_serialization true
 serialize_pane_viewport true
 show_startup_tips false

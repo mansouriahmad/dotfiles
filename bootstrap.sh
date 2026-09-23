@@ -8,7 +8,9 @@
 set -euo pipefail
 
 DOTFILES="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DATA_ROOT="${DATA_ROOT:-/data}"
+# Same defaults as zsh/zshrc: macOS won't allow new top-level directories.
+if [[ $(uname -s) == Darwin ]]; then DEFAULT_DATA_ROOT="$HOME/data"; else DEFAULT_DATA_ROOT=/data; fi
+DATA_ROOT="${DATA_ROOT:-$DEFAULT_DATA_ROOT}"
 
 link() {
   local src="$DOTFILES/$1" dst="$2"
@@ -67,7 +69,7 @@ link_data() {
 
 # $DATA_ROOT is a plain directory if this box has no data partition; create it
 # owned by us so nothing below needs root.
-if [[ ! -d $DATA_ROOT || ! -w $DATA_ROOT ]]; then
+if ! mkdir -p "$DATA_ROOT" 2>/dev/null || [[ ! -w $DATA_ROOT ]]; then
   sudo mkdir -p "$DATA_ROOT"
   sudo chown "$(id -u):$(id -g)" "$DATA_ROOT"
   echo "Created $DATA_ROOT (owned by $(id -un))"
@@ -97,9 +99,9 @@ link_data nvim-data "$HOME/.local/share/nvim"   # lazy plugins, mason tools
 link_data Cargo     "$HOME/.cargo"              # same dir zshrc uses as CARGO_HOME
 link_data Code      "$HOME/Code"
 
-# zshrc defaults DATA_ROOT to /data; any other root has to be exported before
-# zshrc runs, and ~/.zshenv is the file zsh reads first.
-if [[ $DATA_ROOT != /data ]] && ! grep -qs '^export DATA_ROOT=' "$HOME/.zshenv"; then
+# zshrc only knows the per-OS default; any other root has to be exported
+# before zshrc runs, and ~/.zshenv is the file zsh reads first.
+if [[ $DATA_ROOT != "$DEFAULT_DATA_ROOT" ]] && ! grep -qs '^export DATA_ROOT=' "$HOME/.zshenv"; then
   printf 'export DATA_ROOT="%s"\n' "$DATA_ROOT" >> "$HOME/.zshenv"
   echo "  append ~/.zshenv (DATA_ROOT=$DATA_ROOT)"
 fi

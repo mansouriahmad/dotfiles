@@ -2,7 +2,10 @@
 # Toolchains live off a data partition so a reinstall doesn't lose them.
 # Override by exporting DATA_ROOT in ~/.zshenv, which zsh reads before this
 # file. Setting it in ~/.zshrc.local is too late - that is sourced at the end.
-: "${DATA_ROOT:=/data}"
+# macOS won't allow new top-level directories, so there the default is ~/data.
+# Exported so nvim (options.lua) finds conda under the same root.
+if [[ $OSTYPE == darwin* ]]; then : "${DATA_ROOT:=$HOME/data}"; else : "${DATA_ROOT:=/data}"; fi
+export DATA_ROOT
 export RUSTUP_HOME="$DATA_ROOT/Cargo/rustup"
 export CARGO_HOME="$DATA_ROOT/Cargo"
 export NVM_DIR="$DATA_ROOT/nvm"
@@ -10,6 +13,12 @@ export DOTNET_ROOT="$DATA_ROOT/dotnet"
 export SUDO_EDITOR="nvim"
 
 # --- Path Management ---
+# Homebrew is not on the default macOS PATH (Apple Silicon: /opt/homebrew).
+for brew in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+  [[ -x $brew ]] && { eval "$($brew shellenv)"; break; }
+done
+unset brew
+
 # Using the U flag in typeset keeps the PATH unique (no duplicates)
 typeset -U path
 path=(
@@ -69,9 +78,14 @@ export ANDROID_HOME="$DATA_ROOT/Android/Sdk"
 export PATH=$PATH:$ANDROID_HOME/emulator
 export PATH=$PATH:$ANDROID_HOME/platform-tools
 
-# Debian names the JDK dir by dpkg arch (amd64/arm64), not uname (x86_64/aarch64).
-[[ -d /usr/lib/jvm/java-17-openjdk-$(dpkg --print-architecture 2>/dev/null) ]] \
-  && export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-$(dpkg --print-architecture)
+# JDK 17: Homebrew's keg-only openjdk@17 on macOS. Debian names the JDK dir by
+# dpkg arch (amd64/arm64), not uname (x86_64/aarch64).
+if [[ $OSTYPE == darwin* ]]; then
+  [[ -d $HOMEBREW_PREFIX/opt/openjdk@17 ]] \
+    && export JAVA_HOME=$HOMEBREW_PREFIX/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
+elif [[ -d /usr/lib/jvm/java-17-openjdk-$(dpkg --print-architecture 2>/dev/null) ]]; then
+  export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-$(dpkg --print-architecture)
+fi
 
 # Secrets and per-machine overrides live in ~/.zshrc.local (untracked).
 [[ -f "$HOME/.zshrc.local" ]] && source "$HOME/.zshrc.local"

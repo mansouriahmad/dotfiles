@@ -1,6 +1,6 @@
 local wezterm = require("wezterm")
 
-return {
+local config = {
   -- Frappé over Mocha: same Catppuccin palette, but the base is lifted
   -- (#1e1e2e -> #303446) and the fg dimmed (#cdd6f4 -> #c6d0f5). Drops text
   -- contrast ~11.3:1 -> ~8.1:1, still clear of WCAG AAA (7:1), with less glare
@@ -17,9 +17,14 @@ return {
   freetype_load_target = "Light",
 
   enable_tab_bar = false, -- zellij handles tabs
+}
 
+if wezterm.target_triple:find("linux") then
   -- Headless GNOME/RDP session: Wayland explicit-sync path crashes
   -- (no dmabuf in software rendering). Force XWayland + software renderer.
-  enable_wayland = false,
-  front_end = "Software",
-}
+  -- Linux only: on macOS the GPU front end works and is much faster.
+  config.enable_wayland = false
+  config.front_end = "Software"
+end
+
+return config

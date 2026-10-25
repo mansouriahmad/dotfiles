@@ -25,7 +25,7 @@ return {
     -- See :h blink-cmp-config-keymap for defining your own keymap
     keymap = {
       preset = 'default',
-      ["<CR>"] = { "accept", "fallback" },
+      ["<C-CR>"] = { "accept", "fallback" },
       ["<C-Space>"] = { "show" },
       ["<C-j>"] = { "select_next", "fallback" },
       ["<C-k>"] = { "select_prev", "fallback" },
@@ -38,7 +38,12 @@ return {
     },
 
     -- (Default) Only show the documentation popup when manually triggered
-    completion = { documentation = { auto_show = true } },
+    completion = {
+      documentation = { auto_show = true },
+      -- First item is preselected; accept with <C-CR>. Plain <CR> always
+      -- inserts a newline (the 'default' preset doesn't map it).
+      list = { selection = { preselect = true } },
+    },
 
     -- Default list of enabled providers defined so that you can extend it
     -- elsewhere in your config, without redefining it, due to `opts_extend`

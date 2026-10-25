@@ -35,10 +35,17 @@ vim.opt.clipboard = "unnamedplus"               -- allows neovim to access the s
 if vim.env.SSH_TTY or vim.env.SSH_CONNECTION then
   local ok, osc52 = pcall(require, 'vim.ui.clipboard.osc52')
   if ok then
+    -- Copy goes out via OSC 52, but paste reads nvim's own unnamed register.
+    -- OSC 52 *reads* make p query the terminal, which most terminals/Zellij
+    -- block or ignore (stall/prompt). To paste from the local clipboard, use
+    -- the terminal's paste (Ctrl+Shift+V / Cmd+V) instead.
+    local function paste()
+      return { vim.split(vim.fn.getreg(''), '\n'), vim.fn.getregtype('') }
+    end
     vim.g.clipboard = {
-      name = 'OSC 52',
+      name = 'OSC 52 (copy only)',
       copy = { ['+'] = osc52.copy('+'), ['*'] = osc52.copy('*') },
-      paste = { ['+'] = osc52.paste('+'), ['*'] = osc52.paste('*') },
+      paste = { ['+'] = paste, ['*'] = paste },
     }
   end
 elseif vim.env.WAYLAND_DISPLAY and vim.fn.executable('wl-paste') == 1 then
@@ -87,6 +94,19 @@ vim.opt.expandtab = true                        -- convert tabs to spaces
 vim.opt.softtabstop = 2
 vim.opt.shiftwidth = 2                          -- the number of spaces inserted for each indentation
 vim.opt.tabstop = 2                             -- insert 2 spaces for a tab
+
+-- Match each formatter's indent width (dotnet/OmniSharp, rustfmt, ruff all use 4),
+-- so typing Enter after `{` or `:` indents the same way the formatter will.
+-- A project's .editorconfig still wins, since nvim applies it after FileType.
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = { "cs", "rust", "python" },
+  callback = function()
+    vim.opt_local.shiftwidth = 4
+    vim.opt_local.tabstop = 4
+    vim.opt_local.softtabstop = 4
+    vim.opt_local.expandtab = true
+  end,
+})
 vim.opt.cursorline = true                       -- highlight the current line
 vim.opt.number = true                           -- set numbered lines
 vim.opt.relativenumber = true                   -- set relative numbered lines

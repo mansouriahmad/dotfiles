@@ -9,7 +9,8 @@ return {
         columns = { "icon" },
         keymaps = {
           ["<C-h>"] = false,
-          ["<M-h>"] = "actions.select_split"
+          ["<M-h>"] = "actions.select_split",
+          ["R"] = "actions.refresh",
         },
         vim_options = {
           show_hidden = true,

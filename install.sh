@@ -146,9 +146,19 @@ if ! have eza; then
 fi
 
 # ---------------------------------------------------------------------------
-# 2. Neovim (>= 0.11, required by the LSP config's vim.lsp.config/enable API)
+# 2. Neovim (>= 0.12, required by nvim-treesitter's main branch) and the
+#    tree-sitter CLI it uses to compile parsers
 # ---------------------------------------------------------------------------
-if have nvim && nvim --version | head -1 | grep -qE 'v0\.(1[1-9]|[2-9][0-9])'; then
+if ! have tree-sitter; then
+  log "Installing tree-sitter CLI"
+  case "$NVIM_ARCH" in x86_64) TS_ARCH="x64" ;; arm64) TS_ARCH="arm64" ;; esac
+  curl -fL "https://github.com/tree-sitter/tree-sitter/releases/latest/download/tree-sitter-linux-${TS_ARCH}.gz" \
+    | gunzip > "$LOCAL_BIN/tree-sitter"
+  chmod +x "$LOCAL_BIN/tree-sitter"
+  ok "$(tree-sitter --version) installed"
+fi
+
+if have nvim && nvim --version | head -1 | grep -qE 'v0\.(1[2-9]|[2-9][0-9])'; then
   ok "neovim $(nvim --version | head -1) already present"
 else
   log "Installing latest stable Neovim"
@@ -357,7 +367,8 @@ if ! skip NVIM_SYNC; then
   nvim --headless "+MasonInstall stylua debugpy netcoredbg codelldb shfmt" +qa \
     || warn "some Mason tools failed; open nvim and run :Mason to retry"
   log "Updating Treesitter parsers"
-  nvim --headless "+TSUpdateSync" +qa || warn "TSUpdate reported issues"
+  nvim --headless "+lua require('nvim-treesitter').update():wait(600000)" +qa \
+    || warn "TSUpdate reported issues"
 else
   warn "skipping headless nvim sync"
 fi

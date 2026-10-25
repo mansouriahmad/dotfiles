@@ -1,7 +1,7 @@
 return {
   {
     "mrcjkb/rustaceanvim",
-    version = "^5",
+    version = "^9",
     lazy = false, -- Plugin is already lazy-loaded for Rust files
     init = function()
       vim.g.rustaceanvim = {

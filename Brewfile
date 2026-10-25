@@ -12,6 +12,7 @@ brew "fd"
 brew "eza"
 brew "btop"
 brew "neovim"
+brew "tree-sitter-cli" # nvim-treesitter (main) compiles parsers with it
 brew "zellij"
 brew "starship"
 brew "lazygit"

@@ -364,7 +364,7 @@ if ! skip NVIM_SYNC; then
   log "Restoring plugins from lazy-lock.json — the first run compiles Treesitter parsers, be patient"
   nvim --headless "+Lazy! restore" +qa || warn "Lazy restore reported issues (often fine on first run)"
   log "Installing Mason tools not covered by ensure_installed"
-  nvim --headless "+MasonInstall stylua debugpy netcoredbg codelldb shfmt" +qa \
+  nvim --headless "+MasonInstall stylua debugpy netcoredbg codelldb shfmt csharpier" +qa \
     || warn "some Mason tools failed; open nvim and run :Mason to retry"
   log "Updating Treesitter parsers"
   nvim --headless "+lua require('nvim-treesitter').update():wait(600000)" +qa \

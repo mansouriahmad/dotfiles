@@ -42,12 +42,13 @@ return {
               -- for projects that are relevant to code that is being edited.
               LoadProjectsOnDemand = false,
             },
-            -- Enable auto-import suggestions
-            EnableImportCompletion = true,
-            -- Enable code actions for adding using statements
-            EnableRoslynAnalyzers = true,
-            -- Enable semantic highlighting
-            EnableSemanticHighlighting = true,
+            RoslynExtensionsOptions = {
+              -- Show types from namespaces that aren't imported yet (e.g. Stopwatch);
+              -- accepting one adds the matching `using` at the top of the file.
+              EnableImportCompletion = true,
+              -- Roslyn analyzers, code fixes and rulesets.
+              EnableAnalyzersSupport = true,
+            },
           },
         },
         pyright = {
@@ -61,6 +62,24 @@ return {
             },
           },
         },
+        -- C / C++. clangd reads compile_commands.json (CMake writes it to build/
+        -- with CMAKE_EXPORT_COMPILE_COMMANDS=ON). Without one, the fallback flags
+        -- below apply, so a lone .cpp file still gets C++20 diagnostics.
+        clangd = {
+          cmd = {
+            "clangd",
+            "--background-index",
+            "--clang-tidy",
+            "--header-insertion=iwyu",
+            "--completion-style=detailed",
+            "--function-arg-placeholders=true",
+            "--fallback-style=llvm",
+          },
+          init_options = {
+            fallbackFlags = { "-std=c++20", "-Wall", "-Wextra" },
+          },
+        },
+        neocmake = {},
         taplo = {},
         bashls = {},
         yamlls = {},
@@ -71,8 +90,19 @@ return {
     config = function(_, opts)
       require("mason").setup()
 
+      -- Non-LSP tools that mason-lspconfig won't install: get them on any new machine.
+      local registry = require("mason-registry")
+      registry.refresh(function()
+        for _, name in ipairs({ "clang-format", "codelldb" }) do
+          local ok, pkg = pcall(registry.get_package, name)
+          if ok and not pkg:is_installed() then
+            pkg:install()
+          end
+        end
+      end)
+
       require("mason-lspconfig").setup({
-        ensure_installed = { "lua_ls", "rust_analyzer", "ruff", "omnisharp", "pyright", "taplo", "bashls", "yamlls", "dockerls", "marksman" },
+        ensure_installed = { "lua_ls", "rust_analyzer", "ruff", "omnisharp", "pyright", "taplo", "bashls", "yamlls", "dockerls", "marksman", "clangd", "neocmake" },
         automatic_installation = true,
         -- automatic_enable starts EVERY server installed in Mason, not just the
         -- ones in ensure_installed — so anything installed via :Mason and never
@@ -105,6 +135,14 @@ return {
       -- ensure there is an entry to modify; nil value means default settings
       opts.servers.omnisharp = opts.servers.omnisharp or {}
       opts.servers.omnisharp.cmd = get_omnisharp_cmd()
+
+      -- OmniSharp reads its options at startup, not from LSP `settings`, so
+      -- pass them as `Section:Key=value` arguments (e.g. import completion).
+      for section, values in pairs(opts.servers.omnisharp.settings or {}) do
+        for key, value in pairs(values) do
+          table.insert(opts.servers.omnisharp.cmd, section .. ":" .. key .. "=" .. tostring(value))
+        end
+      end
 
       for server, config in pairs(opts.servers) do
         vim.lsp.config(server, config)
@@ -201,6 +239,11 @@ return {
               })
             end, { buffer = ev.buf, desc = 'Fix using statements (auto-import)' })
           end
+          -- C/C++: jump between foo.cpp and foo.h
+          if client.name == "clangd" then
+            vim.keymap.set("n", "<leader>ch", "<cmd>LspClangdSwitchSourceHeader<CR>",
+              { buffer = ev.buf, desc = 'Switch source/header (C/C++)' })
+          end
           -- Faster references: disable previewer and skip declarations
           vim.keymap.set("n", "gr", function()
             telescope.lsp_references({
@@ -220,7 +263,8 @@ return {
           -- Documentation
           vim.keymap.set("n", "K", vim.lsp.buf.hover, { buffer = ev.buf, desc = 'Hover Documentation' })
           vim.keymap.set("n", "<leader>f", function()
-            vim.lsp.buf.format({ async = true })
+            -- Go through conform so it uses the same formatter as format-on-save.
+            require("conform").format({ async = true, lsp_format = "fallback" })
           end, { buffer = ev.buf, desc = 'Format the source' })
 
           vim.keymap.set("n", "<leader>d", function()

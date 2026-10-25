@@ -359,8 +359,13 @@ return {
       -- Auto-detect codelldb from Mason install path or fall back to PATH
       local codelldb_path = "codelldb"
       local mason_codelldb = vim.fn.stdpath("data") .. "/mason/packages/codelldb/extension/adapter/codelldb"
+      if platform.is_windows then
+        mason_codelldb = mason_codelldb .. ".exe"
+      end
       if vim.fn.executable(mason_codelldb) == 1 then
         codelldb_path = mason_codelldb
+      elseif vim.fn.exepath("codelldb") ~= "" then
+        codelldb_path = vim.fn.exepath("codelldb")
       end
 
       dap.adapters.codelldb = {
@@ -598,6 +603,19 @@ return {
         if ft == "rust" then
           -- rust_debug_picker already builds & starts
           rust_debug_picker()
+        elseif ft == "c" or ft == "cpp" then
+          -- CMake project: configure + build into build/, then pick a target.
+          -- Single file: compile it with -g -O0 (+ sanitizers), then debug it.
+          require("cpp-tools").build_for_debug(function(exe)
+            dap.run({
+              name = "Debug " .. vim.fn.fnamemodify(exe, ":t"),
+              type = "codelldb",
+              request = "launch",
+              program = exe,
+              cwd = "${workspaceFolder}",
+              stopOnEntry = false,
+            })
+          end)
         elseif ft == "cs" or ft == "csharp" then
           -- ensure dotnet CLI is available
           if vim.fn.exepath("dotnet") == "" then

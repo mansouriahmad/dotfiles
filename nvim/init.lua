@@ -7,6 +7,7 @@ require 'keymaps'
 require 'lazy-bootstrap'
 require 'lazy-plugins'
 require 'selected-theme'
+require('cpp-tools').setup()
 
 
 -- Load enhanced utilities

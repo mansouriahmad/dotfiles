@@ -12,17 +12,22 @@ return {
         python = { "ruff_format", "ruff_organize_imports" },
         -- You can customize some of the format options for the filetype (:help conform.format
         rust = { "rustfmt", lsp_format = "fallback" },
-        -- C# formatting via LSP (OmniSharp handles formatting)
-        cs = { lsp_format = "prefer" },
+        -- CSharpier (opinionated, like prettier); falls back to OmniSharp if
+        -- it isn't installed (:MasonInstall csharpier).
+        cs = { "csharpier", lsp_format = "fallback" },
+        -- C/C++ via clang-format (Mason). Reads a .clang-format file if the project has one.
+        c = { "clang-format" },
+        cpp = { "clang-format" },
         -- TOML formatting via taplo LSP
         toml = { "taplo" },
         -- Conform will run the first available formatter
         javascript = { "prettierd", "prettier", stop_after_first = true },
       },
-      format_on_save = {
-        timeout_ms = 500,
-        lsp_format = "fallback",
-      },
+      format_on_save = function(bufnr)
+        -- CSharpier starts a .NET process, which can take over 500ms.
+        local slow = vim.bo[bufnr].filetype == "cs"
+        return { timeout_ms = slow and 3000 or 500, lsp_format = "fallback" }
+      end,
     })
   end
 

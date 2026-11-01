@@ -11,6 +11,7 @@ export CARGO_HOME="$DATA_ROOT/Cargo"
 export NVM_DIR="$DATA_ROOT/nvm"
 export DOTNET_ROOT="$DATA_ROOT/dotnet"
 export SUDO_EDITOR="nvim"
+export EDITOR="nvim" VISUAL="nvim"
 
 # --- Path Management ---
 # Homebrew is not on the default macOS PATH (Apple Silicon: /opt/homebrew).
@@ -36,6 +37,35 @@ export PATH
 # NVM
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+
+# --- Vi mode ---
+# Esc enters normal mode. KEYTIMEOUT=1 makes that switch 10ms instead of 400ms.
+bindkey -v
+export KEYTIMEOUT=1
+
+# Cursor: block in normal mode, beam in insert mode. Defined before starship
+# so its keymap hook wraps this one and the prompt indicator still updates.
+zle-keymap-select() {
+  [[ $KEYMAP == vicmd ]] && printf '\e[2 q' || printf '\e[6 q'
+}
+zle-line-init() { printf '\e[6 q'; }
+zle -N zle-keymap-select
+zle -N zle-line-init
+preexec() { printf '\e[2 q'; }   # programs start with a block cursor
+
+# Backspace past the insert point, like nvim (default vi mode stops there).
+bindkey -M viins '^?' backward-delete-char '^H' backward-delete-char
+# Keep the emacs keys worth having in insert mode.
+bindkey -M viins '^R' history-incremental-search-backward
+bindkey -M viins '^A' beginning-of-line '^E' end-of-line
+bindkey -M viins '^W' backward-kill-word '^U' kill-whole-line
+# Ctrl-X Ctrl-E opens the command line in nvim (v stays visual mode).
+autoload -Uz edit-command-line && zle -N edit-command-line
+bindkey -M viins '^X^E' edit-command-line
+bindkey -M vicmd '^X^E' edit-command-line
+# In normal mode, / and ? search history.
+bindkey -M vicmd '/' history-incremental-search-backward
+bindkey -M vicmd '?' history-incremental-search-forward
 
 # Starship (Initialized after paths are set). Guarded so a half-provisioned
 # box still gets a working prompt instead of an error on every shell.

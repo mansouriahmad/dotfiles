@@ -12,7 +12,7 @@ return {
           ["<M-h>"] = "actions.select_split",
           ["R"] = "actions.refresh",
         },
-        vim_options = {
+        view_options = {
           show_hidden = true,
         }
       }

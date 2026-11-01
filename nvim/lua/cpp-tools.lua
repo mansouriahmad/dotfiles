@@ -72,7 +72,7 @@ function M.compile_file(on_done)
   vim.fn.mkdir(out_dir, "p")
   local exe = out_dir .. "/" .. vim.fn.fnamemodify(file, ":t:r") .. exe_suffix
 
-  local args = { cc, is_c and "-std=c17" or "-std=c++20", "-g", "-O0", "-Wall", "-Wextra", "-pedantic" }
+  local args = { cc, is_c and "-std=c17" or "-std=c++23", "-g", "-O0", "-Wall", "-Wextra", "-pedantic" }
   if not platform.is_windows then
     vim.list_extend(args, { "-fsanitize=address,undefined", "-fno-omit-frame-pointer" })
   end
@@ -123,6 +123,12 @@ function M.cmake_build(on_done)
     "cmake", "-S", root, "-B", build,
     "-DCMAKE_BUILD_TYPE=Debug", "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
   }
+  -- Prefer clang for new build dirs. CMake fixes the compiler on first
+  -- configure, so existing build/ dirs keep theirs (delete build/ to switch).
+  local cached = vim.uv.fs_stat(build .. "/CMakeCache.txt")
+  if not cached and compiler(false) == "clang++" then
+    vim.list_extend(configure, { "-DCMAKE_C_COMPILER=clang", "-DCMAKE_CXX_COMPILER=clang++" })
+  end
   vim.notify("CMake: building " .. vim.fn.fnamemodify(root, ":t") .. " ...", vim.log.levels.INFO)
   vim.system(configure, { text = true }, function(cfg)
     if cfg.code ~= 0 then

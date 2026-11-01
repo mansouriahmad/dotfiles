@@ -5,7 +5,7 @@ return {
   -- {"<leader>sg", "<cmd>Telescope live_grep<cr>"},
 
   --},
-  tag = '0.1.8',
+  branch = 'master',
   lazy = false,
   dependencies = {
     'nvim-lua/plenary.nvim',
@@ -277,6 +277,8 @@ return {
 
     -- Quick theme cycling through your favorites
     local favorite_themes = {
+      'voicekit',
+      'voicekit-light',
       'everforest',
       'gruvbox',
       'tokyonight',

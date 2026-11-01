@@ -74,9 +74,13 @@ return {
             "--completion-style=detailed",
             "--function-arg-placeholders=true",
             "--fallback-style=llvm",
+            -- Ask the real compiler (g++/clang from compile_commands.json) for its
+            -- include paths. Without this, clangd guesses the newest GCC on the
+            -- system, which may lack C++ headers, so <vector> etc. go missing.
+            "--query-driver=/usr/bin/c++,/usr/bin/cc,/usr/bin/*g++*,/usr/bin/*gcc*,/usr/bin/clang*",
           },
           init_options = {
-            fallbackFlags = { "-std=c++20", "-Wall", "-Wextra" },
+            fallbackFlags = { "-std=c++23", "-Wall", "-Wextra" },
           },
         },
         neocmake = {},

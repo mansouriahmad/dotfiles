@@ -20,6 +20,6 @@ require('cpp-tools').setup()
 -- project.setup()
 -- error_handler.setup()
 
--- Windows compatibility: Ensure PowerShell is set as the default shell in plugins/toggleterm.lua
--- Some plugins may require additional setup or dependencies on Windows (see plugin configs)
+-- Windows: PowerShell 7 is set as 'shell' in options.lua; OS differences live
+-- in lua/platform.lua. windows/install.ps1 installs what the plugins need.
 vim.o.background = "dark"

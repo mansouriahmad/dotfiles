@@ -9,7 +9,9 @@ return {
   'mrjones2014/smart-splits.nvim',
   lazy = false,
   config = function()
-    require('smart-splits').setup({ multiplexer_integration = 'zellij' })
+    -- Windows has no zellij; WezTerm splits play its part (see wezterm.lua).
+    local mux = require('platform').is_windows and 'wezterm' or 'zellij'
+    require('smart-splits').setup({ multiplexer_integration = mux })
 
     local ss = require('smart-splits')
     local map = function(lhs, rhs, desc)

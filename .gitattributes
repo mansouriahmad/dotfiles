@@ -1,0 +1,5 @@
+# LF everywhere, whatever core.autocrlf says. Git for Windows defaults to
+# CRLF checkouts, which would break the bash pre-commit hook (#!/usr/bin/env
+# bash\r) and any script run under WSL or Git Bash.
+* text=auto eol=lf
+*.vsix binary

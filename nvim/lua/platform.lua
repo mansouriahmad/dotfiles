@@ -23,6 +23,11 @@ end
 --- Windows installers ship `python`; macOS and most Linux ship only `python3`.
 ---@return string
 function M.python()
+  -- On Windows `python3` is usually the Microsoft Store alias stub, which opens
+  -- the Store instead of running anything. python.org's installer ships `python`.
+  if M.is_windows and vim.fn.exepath('python') ~= '' then
+    return 'python'
+  end
   if vim.fn.exepath('python3') ~= '' then
     return 'python3'
   end

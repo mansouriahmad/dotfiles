@@ -1,7 +1,26 @@
 vim.g.have_nerd_fonts = true
 -- Use the conda nvim-tools env if available, otherwise fall back to system python
 local platform = require('platform')
-local conda_root = vim.env.CONDA_ROOT or ((vim.env.DATA_ROOT or '/data') .. '/miniconda3')
+-- Windows has no DATA_ROOT; Miniconda's per-user install lands in ~/miniconda3.
+local default_data_root = platform.is_windows and vim.env.USERPROFILE or '/data'
+local conda_root = vim.env.CONDA_ROOT or ((vim.env.DATA_ROOT or default_data_root) .. '/miniconda3')
+
+-- Windows: run :!, :terminal and plugin build steps in PowerShell 7 instead of
+-- cmd.exe (settings from :h shell-powershell). Falls back to cmd.exe if pwsh
+-- is missing, so a half-provisioned machine still starts.
+if platform.is_windows and vim.fn.executable('pwsh') == 1 then
+  vim.o.shell = 'pwsh'
+  -- -NoProfile keeps :! fast; :terminal ignores shellcmdflag and loads the profile.
+  vim.o.shellcmdflag = '-NoLogo -NoProfile -NonInteractive -ExecutionPolicy RemoteSigned -Command '
+    .. '[Console]::InputEncoding=[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new();'
+    .. "$PSDefaultParameterValues['Out-File:Encoding']='utf8';"
+    .. "$PSStyle.OutputRendering='plaintext';"
+    .. 'Remove-Alias -Force -ErrorAction SilentlyContinue tee;'
+  vim.o.shellredir = '2>&1 | %%{ "$_" } | Out-File %s; exit $LastExitCode'
+  vim.o.shellpipe = '2>&1 | %%{ "$_" } | tee %s; exit $LastExitCode'
+  vim.o.shellquote = ''
+  vim.o.shellxquote = ''
+end
 local conda_python = platform.venv_python(conda_root .. '/envs/nvim-tools')
 if vim.fn.executable(conda_python) == 1 then
   vim.g.python3_host_prog = conda_python

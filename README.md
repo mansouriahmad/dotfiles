@@ -1,6 +1,6 @@
 # Dotfiles
 
-Config for a Linux (Debian/Ubuntu) or macOS workstation running
+Config for a Linux (Debian/Ubuntu), macOS or Windows workstation running
 **wezterm → zellij → neovim**, with Claude Code inside neovim.
 
 Everything here is the real file; `~` holds symlinks pointing back into this repo.
@@ -45,6 +45,37 @@ DATA_ROOT="$HOME/data" ./install.sh
 Neovim plugins are pinned by `nvim/lazy-lock.json`; `install.sh` runs
 `:Lazy! restore` to install exactly those commits. After `:Lazy update`, commit
 the lockfile.
+
+## Windows (native)
+
+For Windows 10/11 and Windows Server 2022/2025. Needs `winget`. It ships with
+Windows 11 and Server 2025; Server 2022 needs it installed first.
+
+```powershell
+git clone https://github.com/mansouriahmad/dotfiles.git $HOME\Dotfiles
+powershell -ExecutionPolicy Bypass -File $HOME\Dotfiles\windows\install.ps1 -DryRun   # preview
+powershell -ExecutionPolicy Bypass -File $HOME\Dotfiles\windows\install.ps1
+```
+
+`windows/install.ps1` does what `install.sh` and `bootstrap.sh` do together, and
+follows the same rules: packages come only from winget's official source, tools
+already present are left alone, nothing is deleted (whatever is in the way moves to
+`<name>.pre-bootstrap`), and re-running is harmless. Skip parts with
+`-Skip Rust,DotNet,...`, or use `-ToolsOnly` / `-LinkOnly`.
+
+| Repo | Windows location | Notes |
+|---|---|---|
+| `nvim/` | `%LOCALAPPDATA%\nvim` | junction |
+| `wezterm/` | `~\.config\wezterm` | junction |
+| `git/gitconfig` | `~\.gitconfig` | a previous `~\.gitconfig` becomes `~\.gitconfig.local` |
+| `claude/settings.json`, `conda/condarc` | `~\.claude\`, `~\.condarc` | symlink with Developer Mode, otherwise a copy |
+| `windows/profile.ps1` | dot-sourced from the pwsh 7 `$PROFILE` | the zshrc counterpart; secrets in `~\.pwsh.local.ps1` |
+
+Zellij, zsh and bash don't run on Windows. WezTerm handles tabs and panes there
+instead, with the same keys where WezTerm has the action: `Ctrl h/j/k/l` moves
+across nvim splits and WezTerm panes (smart-splits switches to its WezTerm
+integration), `Alt h/j/k/l` resizes, `Alt n`/`Alt d` split right/down, `Alt t`
+opens a tab, `Alt f` zooms, `Alt x` closes, `Ctrl s` enters copy mode.
 
 ## Layout
 

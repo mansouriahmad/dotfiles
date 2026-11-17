@@ -48,8 +48,12 @@ the lockfile.
 
 ## Windows (native)
 
-For Windows 10/11 and Windows Server 2022/2025. Needs `winget`. It ships with
-Windows 11 and Server 2025; Server 2022 needs it installed first.
+For Windows 10/11 and Windows Server 2019/2022/2025. Needs a package manager:
+`winget` (ships with Windows 11 and Server 2025) or, where winget can't run,
+[Chocolatey](https://chocolatey.org/install). Server 2019 is the Chocolatey
+case: winget installs there but its `winget` command is never created. The
+script uses winget when it works and Chocolatey otherwise (force one with
+`-PackageManager choco`); Chocolatey needs an admin shell.
 
 ```powershell
 git clone https://github.com/mansouriahmad/dotfiles.git $HOME\Dotfiles
@@ -58,7 +62,7 @@ powershell -ExecutionPolicy Bypass -File $HOME\Dotfiles\windows\install.ps1
 ```
 
 `windows/install.ps1` does what `install.sh` and `bootstrap.sh` do together, and
-follows the same rules: packages come only from winget's official source, tools
+follows the same rules: packages come only from the package manager's official repository, tools
 already present are left alone, nothing is deleted (whatever is in the way moves to
 `<name>.pre-bootstrap`), and re-running is harmless. Skip parts with
 `-Skip Rust,DotNet,...`, or use `-ToolsOnly` / `-LinkOnly`.

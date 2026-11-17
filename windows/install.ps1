@@ -1,12 +1,17 @@
 <#
   install.ps1 - provision a Windows machine (Windows 10/11, Windows Server
-  2022/2025) with the tools these dotfiles expect, then link the configs.
+  2019/2022/2025) with the tools these dotfiles expect, then link the configs.
   The Windows counterpart of install.sh + bootstrap.sh.
 
+  Package manager: winget when it works, otherwise Chocolatey. Windows Server
+  2019 is the usual Chocolatey case: winget installs there but its `winget`
+  command (an app execution alias) is never created. This script installs
+  neither manager itself; see the error it prints if both are missing.
+
   Safety rules this script keeps:
-    * Software comes only from winget's official community source
-      (--source winget), the same packages Microsoft lists. Nothing is piped
-      from the internet into a shell.
+    * Software comes only from the package manager's official repository
+      (winget --source winget, or the Chocolatey community repository).
+      Nothing is piped from the internet into a shell.
     * Nothing is ever deleted. A file or folder in the way is moved aside to
       <name>.pre-bootstrap (timestamped if that exists too) before a link
       replaces it. Links are created with New-Item, never removed with
@@ -15,8 +20,8 @@
     * Every step checks first, so re-running is harmless.
     * -DryRun prints every action without doing any of them.
 
-  Usage (from Windows PowerShell or pwsh; no admin shell needed, winget asks
-  for elevation itself when a package installs machine-wide):
+  Usage (from Windows PowerShell or pwsh). With winget no admin shell is
+  needed; it asks for elevation itself. Chocolatey needs an admin shell.
 
     git clone https://github.com/mansouriahmad/dotfiles.git $HOME\Dotfiles
     powershell -ExecutionPolicy Bypass -File $HOME\Dotfiles\windows\install.ps1 -DryRun
@@ -25,6 +30,7 @@
     -Skip Rust,DotNet     skip components (names below)
     -ToolsOnly            install software, don't link configs
     -LinkOnly             link configs, don't install software
+    -PackageManager choco force one manager (auto | winget | choco)
 
   Components: Build Terminal Font Node Rust DotNet Python Conda JDK Claude
               VSCode NvimSync   (Core is always installed)
@@ -34,7 +40,9 @@ param(
   [string[]]$Skip = @(),
   [switch]$ToolsOnly,
   [switch]$LinkOnly,
-  [switch]$DryRun
+  [switch]$DryRun,
+  [ValidateSet('auto', 'winget', 'choco')]
+  [string]$PackageManager = 'auto'
 )
 
 Set-StrictMode -Version 2
@@ -80,38 +88,42 @@ function Update-SessionPath {
 # ---------------------------------------------------------------------------
 # Packages
 # ---------------------------------------------------------------------------
-# Cmd: an executable that proves the tool is already there (from winget or
-# anywhere else). Without one, `winget list` decides.
+# Id: winget id. Choco: Chocolatey id (+ ChocoArgs). Cmd: an executable that
+# proves the tool is already there, from any source; without one, the package
+# manager's own list decides.
 $VCTools = '--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended'
 $Packages = @(
   # Core: the editor and what it shells out to.
-  @{ Group='Core';     Id='Microsoft.PowerShell';           Cmd='pwsh' }
-  @{ Group='Core';     Id='Git.Git';                        Cmd='git' }
-  @{ Group='Core';     Id='Neovim.Neovim';                  Cmd='nvim' }
-  @{ Group='Core';     Id='BurntSushi.ripgrep.MSVC';        Cmd='rg' }
-  @{ Group='Core';     Id='sharkdp.fd';                     Cmd='fd' }
-  @{ Group='Core';     Id='equalsraf.win32yank';            Cmd='win32yank' }   # nvim's Windows clipboard provider
-  @{ Group='Core';     Id='tree-sitter.tree-sitter-cli';    Cmd='tree-sitter' } # compiles Treesitter parsers
-  @{ Group='Core';     Id='7zip.7zip';                      Cmd=$null }         # Mason unpacks .gz/.7z with it
+  @{ Group='Core';     Id='Microsoft.PowerShell';         Choco='powershell-core';    Cmd='pwsh' }
+  @{ Group='Core';     Id='Git.Git';                      Choco='git';                Cmd='git' }
+  @{ Group='Core';     Id='Neovim.Neovim';                Choco='neovim';             Cmd='nvim' }
+  @{ Group='Core';     Id='BurntSushi.ripgrep.MSVC';      Choco='ripgrep';            Cmd='rg' }
+  @{ Group='Core';     Id='sharkdp.fd';                   Choco='fd';                 Cmd='fd' }
+  @{ Group='Core';     Id='equalsraf.win32yank';          Choco='win32yank';          Cmd='win32yank' }   # nvim's Windows clipboard provider
+  @{ Group='Core';     Id='tree-sitter.tree-sitter-cli';  Choco='tree-sitter';        Cmd='tree-sitter' } # compiles Treesitter parsers
+  @{ Group='Core';     Id='7zip.7zip';                    Choco='7zip';               Cmd='7z' }          # Mason unpacks .gz/.7z with it
   # Build: C/C++ compiler for Treesitter parsers, telescope-fzf-native, Rust (msvc) and your C++ work.
-  @{ Group='Build';    Id='Microsoft.VisualStudio.BuildTools'; Cmd=$null; Override=$VCTools }
-  @{ Group='Build';    Id='Kitware.CMake';                  Cmd='cmake' }
-  @{ Group='Build';    Id='Ninja-build.Ninja';              Cmd='ninja' }
-  @{ Group='Build';    Id='LLVM.LLVM';                      Cmd='clang' }
+  # Chocolatey gets VS 2022 Build Tools, which (unlike newer ones) support Server 2019.
+  @{ Group='Build';    Id='Microsoft.VisualStudio.BuildTools'; Override=$VCTools; Cmd=$null
+                       Choco='visualstudio2022-workload-vctools'; ChocoArgs=@('--package-parameters=--includeRecommended') }
+  @{ Group='Build';    Id='Kitware.CMake';                Choco='cmake';              Cmd='cmake'
+                       ChocoArgs=@('--install-arguments=ADD_CMAKE_TO_PATH=System') }
+  @{ Group='Build';    Id='Ninja-build.Ninja';            Choco='ninja';              Cmd='ninja' }
+  @{ Group='Build';    Id='LLVM.LLVM';                    Choco='llvm';               Cmd='clang' }
   # Terminal stack (WezTerm replaces wezterm + zellij here; see wezterm.lua).
-  @{ Group='Terminal'; Id='wez.wezterm';                    Cmd='wezterm' }
-  @{ Group='Terminal'; Id='Starship.Starship';              Cmd='starship' }
-  @{ Group='Terminal'; Id='JesseDuffield.lazygit';          Cmd='lazygit' }
-  @{ Group='Terminal'; Id='eza-community.eza';              Cmd='eza' }
-  @{ Group='Font';     Id='DEVCOM.JetBrainsMonoNerdFont';   Cmd=$null }
+  @{ Group='Terminal'; Id='wez.wezterm';                  Choco='wezterm';            Cmd='wezterm' }
+  @{ Group='Terminal'; Id='Starship.Starship';            Choco='starship';           Cmd='starship' }
+  @{ Group='Terminal'; Id='JesseDuffield.lazygit';        Choco='lazygit';            Cmd='lazygit' }
+  @{ Group='Terminal'; Id='eza-community.eza';            Choco='eza';                Cmd='eza' }
+  @{ Group='Font';     Id='DEVCOM.JetBrainsMonoNerdFont'; Choco='nerd-fonts-jetbrainsmono'; Cmd=$null }
   # Toolchains
-  @{ Group='Node';     Id='OpenJS.NodeJS.LTS';              Cmd='node' }        # npm-based Mason servers
-  @{ Group='Rust';     Id='Rustlang.Rustup';                Cmd='rustup' }
-  @{ Group='DotNet';   Id='Microsoft.DotNet.SDK.10';        Cmd='dotnet' }
-  @{ Group='Python';   Id='Python.Python.3.13';             Cmd='python' }
-  @{ Group='Conda';    Id='Anaconda.Miniconda3';            Cmd=$null }
-  @{ Group='JDK';      Id='Microsoft.OpenJDK.17';           Cmd=$null }
-  @{ Group='Claude';   Id='Anthropic.ClaudeCode';           Cmd='claude' }
+  @{ Group='Node';     Id='OpenJS.NodeJS.LTS';            Choco='nodejs-lts';         Cmd='node' }        # npm-based Mason servers
+  @{ Group='Rust';     Id='Rustlang.Rustup';              Choco='rustup.install';     Cmd='rustup' }
+  @{ Group='DotNet';   Id='Microsoft.DotNet.SDK.10';      Choco='dotnet-10.0-sdk';    Cmd='dotnet' }
+  @{ Group='Python';   Id='Python.Python.3.13';           Choco='python313';          Cmd='python' }
+  @{ Group='Conda';    Id='Anaconda.Miniconda3';          Choco='miniconda3';         Cmd=$null }
+  @{ Group='JDK';      Id='Microsoft.OpenJDK.17';         Choco='microsoft-openjdk17'; Cmd=$null }
+  @{ Group='Claude';   Id='Anthropic.ClaudeCode';         Choco='claude-code';        Cmd='claude' }
 )
 
 function Test-WingetInstalled ($id) {
@@ -123,6 +135,7 @@ function Test-WingetInstalled ($id) {
 }
 
 function Install-Package ($p) {
+  if ($Manager -eq 'choco') { Install-ChocoPackage $p; return }
   if ($p.Cmd -and (Have $p.Cmd)) { Ok "$($p.Id) (found $($p.Cmd))"; return }
   if (Test-WingetInstalled $p.Id)  { Ok "$($p.Id) (already installed)"; return }
 
@@ -137,6 +150,34 @@ function Install-Package ($p) {
     # 0x8A15002B: already installed / no applicable upgrade. 3010: needs a reboot.
     if (@(0, -1978335189, 3010) -contains $LASTEXITCODE) { Ok $p.Id }
     else { Warn "$($p.Id) failed (winget exit $LASTEXITCODE)"; $Failures.Add($p.Id) }
+    Update-SessionPath
+  }
+}
+
+function Test-ChocoInstalled ($id) {
+  $ErrorActionPreference = 'Continue'
+  # Chocolatey 1.x lists the remote repository unless told --local-only;
+  # 2.x lists local packages only and dropped that flag.
+  $cargs = @('list', '--exact', $id, '--limit-output')
+  if ($ChocoMajor -lt 2) { $cargs += '--local-only' }
+  $out = & choco @cargs 2>$null
+  return [bool]($out | Where-Object { $_ -like "$id|*" })
+}
+
+function Install-ChocoPackage ($p) {
+  $id = $p.Choco
+  if ($p.Cmd -and (Have $p.Cmd)) { Ok "$id (found $($p.Cmd))"; return }
+  if (Test-ChocoInstalled $id)    { Ok "$id (already installed)"; return }
+
+  Log "Installing $id (Chocolatey)"
+  $cargs = @('install', $id, '-y', '--no-progress')
+  if ($p.ContainsKey('ChocoArgs')) { $cargs += $p.ChocoArgs }
+
+  Step "choco $($cargs -join ' ')" {
+    & choco @cargs
+    # 1641 / 3010: installed, reboot needed.
+    if (@(0, 1641, 3010) -contains $LASTEXITCODE) { Ok $id }
+    else { Warn "$id failed (choco exit $LASTEXITCODE)"; $Failures.Add($id) }
     Update-SessionPath
   }
 }
@@ -269,11 +310,26 @@ function Hook-Profile ($profilePath) {
 if ($DryRun) { Warn 'dry run: nothing will be installed, moved or linked' }
 
 if (-not $LinkOnly) {
-  if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-    throw ('winget not found. It ships with Windows 11 and Windows Server 2025 (App Installer). ' +
-           'On Windows Server 2022 install it first, see learn.microsoft.com/windows/package-manager/winget, ' +
-           'then re-run. Or use -LinkOnly if the tools are already installed.')
+  $hasWinget = [bool](Get-Command winget -ErrorAction SilentlyContinue)
+  $hasChoco  = [bool](Get-Command choco  -ErrorAction SilentlyContinue)
+  $Manager = $PackageManager
+  if ($Manager -eq 'auto') {
+    if ($hasWinget) { $Manager = 'winget' } elseif ($hasChoco) { $Manager = 'choco' } else { $Manager = $null }
   }
+  if (-not $Manager -or ($Manager -eq 'winget' -and -not $hasWinget) -or ($Manager -eq 'choco' -and -not $hasChoco)) {
+    throw ('No usable package manager. Install one, open a new admin PowerShell window, and re-run:' +
+           "`n  winget:     ships with Windows 11 / Server 2025; see learn.microsoft.com/windows/package-manager/winget" +
+           "`n  Chocolatey: Windows Server 2019 and older; follow the install steps at chocolatey.org/install" +
+           "`nOr use -LinkOnly if the tools are already installed.")
+  }
+  if ($Manager -eq 'choco') {
+    $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
+               ).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    if (-not $isAdmin) { throw 'Chocolatey installs need an elevated shell: re-run from an admin PowerShell window.' }
+    $ChocoMajor = 0
+    if ((& choco --version) -match '^(\d+)\.') { $ChocoMajor = [int]$Matches[1] }
+  }
+  Log "Installing software with $Manager"
 
   foreach ($p in $Packages) {
     if ($p.Group -ne 'Core' -and (Skipped $p.Group)) { continue }
@@ -288,8 +344,24 @@ if (-not $LinkOnly) {
   if (Have 'nvim') {
     $v = (& nvim --version | Select-Object -First 1)
     if ($v -match 'v0\.(\d+)' -and [int]$Matches[1] -lt 12) {
-      Warn "$v is older than 0.12; run: winget upgrade --id Neovim.Neovim"
+      if ($Manager -eq 'choco') { Warn "$v is older than 0.12; run: choco upgrade neovim -y" }
+      else { Warn "$v is older than 0.12; run: winget upgrade --id Neovim.Neovim" }
     } else { Ok $v }
+  }
+
+  # Chocolatey's Miniconda goes to C:\tools\miniconda3, not ~\miniconda3.
+  # profile.ps1 and nvim's options.lua both honour CONDA_ROOT, so point it there.
+  if (-not (Skipped 'Conda') -and -not $env:CONDA_ROOT -and -not (Test-Path "$HOME\miniconda3")) {
+    foreach ($c in @('C:\tools\miniconda3', "$env:ProgramData\miniconda3")) {
+      if (Test-Path "$c\Scripts\conda.exe") {
+        Step "set user CONDA_ROOT=$c" {
+          [Environment]::SetEnvironmentVariable('CONDA_ROOT', $c, 'User')
+          $env:CONDA_ROOT = $c
+          Ok "CONDA_ROOT=$c"
+        }
+        break
+      }
+    }
   }
 
   if (-not (Skipped 'Rust') -and (Have 'rustup')) {

@@ -461,6 +461,8 @@ Write-Host ''
 if ($Failures.Count) {
   Warn "These packages failed and were skipped: $($Failures -join ', ')"
   Warn 'Re-run the script to retry them; everything else is unaffected.'
+} elseif ($DryRun) {
+  Write-Host 'Dry run complete: nothing was changed. Run again without -DryRun to install.' -ForegroundColor Green
 } else {
   Write-Host 'Install complete.' -ForegroundColor Green
 }
